@@ -1124,7 +1124,7 @@ static int msm_compr_open(struct snd_compr_stream *cstream)
 	} else {
 		pr_err("%s: Unsupported stream type", __func__);
 	}
-
+	pdata->is_in_use[rtd->dai_link->be_id] = true;
 	return 0;
 }
 
