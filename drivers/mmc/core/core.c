@@ -67,9 +67,24 @@ static const unsigned freqs[] = { 400000, 300000, 200000, 100000 };
  * Enabling software CRCs on the data blocks can be a significant (30%)
  * performance cost, and for other reasons may not always be desired.
  * So we allow it it to be disabled.
- */
-bool use_spi_crc = 1;
-module_param(use_spi_crc, bool, 0);
+ *
+ * SysFs interface :
+ *
+ * /sys/module/mmc_core/parameters/crc
+ *
+ * Enable / Disable CRC
+ *
+ * echo N > /sys/module/mmc_core/parameters/crc (Disabled) or
+ * echo 0 > /sys/module/mmc_core/parameters/crc (Disabled)
+ *
+ * echo Y > /sys/module/mmc_core/parameters/crc (Enabled) or
+ * echo 1 > /sys/module/mmc_core/parameters/crc (Enabled)
+*/
+
+int use_spi_crc = 0;
+EXPORT_SYMBOL(use_spi_crc);
+module_param_named(crc, use_spi_crc, int, 0644);
+MODULE_PARM_DESC(crc, "Enable/disable CRC");
 
 /*
  * We normally treat cards as removed during suspend if they are not
@@ -1372,11 +1387,11 @@ void mmc_set_data_timeout(struct mmc_data *data, const struct mmc_card *card)
 	/*
 	 * Some cards require longer data read timeout than indicated in CSD.
 	 * Address this by setting the read timeout to a "reasonably high"
-	 * value. For the cards tested, 300ms has proven enough. If necessary,
+	 * value. For the cards tested, 600ms has proven enough. If necessary,
 	 * this value can be increased if other problematic cards require this.
 	 */
 	if (mmc_card_long_read_time(card) && data->flags & MMC_DATA_READ) {
-		data->timeout_ns = 300000000;
+		data->timeout_ns = 600000000;
 		data->timeout_clks = 0;
 	}
 
@@ -3094,7 +3109,8 @@ out:
 	return;
 }
 
-static bool mmc_is_vaild_state_for_clk_scaling(struct mmc_host *host)
+static bool mmc_is_vaild_state_for_clk_scaling(struct mmc_host *host,
+				enum mmc_load state)
 {
 	struct mmc_card *card = host->card;
 	u32 status;
@@ -3107,7 +3123,8 @@ static bool mmc_is_vaild_state_for_clk_scaling(struct mmc_host *host)
 	 */
 	if (!card || (mmc_card_mmc(card) &&
 			card->part_curr == EXT_CSD_PART_CONFIG_ACC_RPMB)
-			|| host->clk_scaling.invalid_state)
+			|| (state != MMC_LOAD_LOW &&
+				host->clk_scaling.invalid_state))
 		goto out;
 
 	if (mmc_send_status(card, &status)) {
@@ -3138,7 +3155,7 @@ static int mmc_clk_update_freq(struct mmc_host *host,
 	}
 
 	if (freq != host->clk_scaling.curr_freq) {
-		if (!mmc_is_vaild_state_for_clk_scaling(host)) {
+		if (!mmc_is_vaild_state_for_clk_scaling(host, state)) {
 			err = -EAGAIN;
 			goto error;
 		}
@@ -3925,6 +3942,7 @@ int mmc_pm_notify(struct notifier_block *notify_block,
 	switch (mode) {
 	case PM_HIBERNATION_PREPARE:
 	case PM_SUSPEND_PREPARE:
+	case PM_RESTORE_PREPARE:
 		if (host->card && mmc_card_mmc(host->card)) {
 			mmc_claim_host(host);
 			err = mmc_stop_bkops(host->card);

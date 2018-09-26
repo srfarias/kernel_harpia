@@ -200,13 +200,13 @@ EXPORT_SYMBOL(loops_per_jiffy);
 
 static int __init debug_kernel(char *str)
 {
-	console_loglevel = 10;
+	console_loglevel = 0;
 	return 0;
 }
 
 static int __init quiet_kernel(char *str)
 {
-	console_loglevel = 4;
+	console_loglevel = 0;
 	return 0;
 }
 
@@ -548,6 +548,7 @@ asmlinkage void __init start_kernel(void)
 	perf_event_init();
 	rcu_init();
 	tick_nohz_init();
+	rcu_init_nohz();
 	radix_tree_init();
 	/* init some links before init_ISA_irqs() */
 	early_irq_init();
@@ -609,6 +610,10 @@ asmlinkage void __init start_kernel(void)
 	if (efi_enabled(EFI_RUNTIME_SERVICES))
 		efi_enter_virtual_mode();
 #endif
+#ifdef CONFIG_X86_ESPFIX64
+	/* Should be run before the first non-init thread is created */
+	init_espfix_bsp();
+#endif
 	thread_info_cache_init();
 	cred_init();
 	fork_init(totalram_pages);
@@ -638,8 +643,6 @@ asmlinkage void __init start_kernel(void)
 		efi_late_init();
 		efi_free_boot_services();
 	}
-
-	ftrace_init();
 
 	/* Do the rest non-__init'ed, we're now alive */
 	rest_init();

@@ -153,13 +153,10 @@ extern void __unregister_cpu_notifier(struct notifier_block *nb);
 #ifndef MODULE
 extern int register_cpu_notifier(struct notifier_block *nb);
 extern int __register_cpu_notifier(struct notifier_block *nb);
-#else
-static inline int register_cpu_notifier(struct notifier_block *nb)
-{
-	return 0;
-}
+#else /* #if defined(CONFIG_HOTPLUG_CPU) || !defined(MODULE) */
+#define cpu_notifier(fn, pri)	do { (void)(fn); } while (0)
 
-static inline int __register_cpu_notifier(struct notifier_block *nb)
+static inline int register_cpu_notifier(struct notifier_block *nb)
 {
 	return 0;
 }
@@ -301,5 +298,10 @@ void arch_cpu_idle_dead(void);
 void idle_notifier_register(struct notifier_block *n);
 void idle_notifier_unregister(struct notifier_block *n);
 void idle_notifier_call_chain(unsigned long val);
+
+#ifdef CONFIG_CPU_BOOST
+extern bool check_cpuboost(int cpu);
+extern bool wakeup_boost;
+#endif
 
 #endif /* _LINUX_CPU_H_ */

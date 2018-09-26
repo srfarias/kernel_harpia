@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2016,2017  The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1212,7 +1212,7 @@ static int ngd_slim_rx_msgq_thread(void *data)
 
 	while (!kthread_should_stop()) {
 		set_current_state(TASK_INTERRUPTIBLE);
-		wait_for_completion(notify);
+		wait_for_completion_interruptible(notify);
 		/* 1 irq notification per message */
 		if (dev->use_rx_msgqs != MSM_MSGQ_ENABLED) {
 			msm_slim_rx_dequeue(dev, (u8 *)buffer);
@@ -1223,6 +1223,7 @@ static int ngd_slim_rx_msgq_thread(void *data)
 		if (ret) {
 			SLIM_ERR(dev, "rx_msgq_get() failed 0x%x\n", ret);
 			continue;
+
 		}
 
 		/* Wait for complete message */
@@ -1258,7 +1259,7 @@ static int ngd_notify_slaves(void *data)
 
 	while (!kthread_should_stop()) {
 		set_current_state(TASK_INTERRUPTIBLE);
-		wait_for_completion(&dev->qmi.slave_notify);
+		wait_for_completion_interruptible(&dev->qmi.slave_notify);
 		/* Probe devices for first notification */
 		if (!i) {
 			i++;
@@ -1476,6 +1477,7 @@ static int ngd_slim_probe(struct platform_device *pdev)
 	mutex_init(&dev->tx_lock);
 	mutex_init(&dev->ssr_lock);
 	mutex_init(&dev->tx_buf_lock);
+	mutex_init(&dev->ssr_lock);
 	spin_lock_init(&dev->rx_lock);
 	dev->ee = 1;
 	dev->irq = irq->start;

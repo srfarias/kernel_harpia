@@ -25,10 +25,14 @@
 #include <linux/msm_mdp.h>
 #include <linux/jiffies.h>
 #include <linux/ktime.h>
-
+#include <linux/display_state.h>
 #include "mdss_dsi.h"
 #include "mdss_fb.h"
 #include "mdss_dropbox.h"
+
+#ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE
+#include <linux/input/doubletap2wake.h>
+#endif
 
 #define MDSS_PANEL_DEFAULT_VER 0xffffffffffffffff
 #define MDSS_PANEL_UNKNOWN_NAME "unknown"
@@ -81,6 +85,14 @@ static void mdss_dsi_panel_bl_on_defer_wait(struct mdss_dsi_ctrl_pdata *ctrl)
 		wait_for_completion_timeout(&bl_on_delay_completion,
 			msecs_to_jiffies(pinfo->bl_on_defer_delay) + 1);
 	}
+}
+
+
+bool display_on = true;
+
+bool is_display_on()
+{
+	return display_on;
 }
 
 void mdss_dsi_panel_pwm_cfg(struct mdss_dsi_ctrl_pdata *ctrl)
@@ -861,17 +873,27 @@ end:
 
 static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 {
+	
 	struct mdss_dsi_ctrl_pdata *ctrl = NULL;
 	struct mdss_panel_info *pinfo;
 	u8 pwr_mode = 0;
 	char *dropbox_issue = NULL;
 	static int dropbox_count;
 	static int panel_recovery_retry;
+	
+#ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE
+	bool prevent_sleep = (dt2w_switch > 0);
+	if (prevent_sleep && in_phone_call)
+		prevent_sleep = false;
+#endif
 
 	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
 		return -EINVAL;
 	}
+
+
+	display_on = true;
 
 	pinfo = &pdata->panel_info;
 	ctrl = container_of(pdata, struct mdss_dsi_ctrl_pdata,
@@ -917,6 +939,11 @@ end:
 		dropbox_count = 0;
 
 	pr_info("%s-. Pwr_mode(0x0A) = 0x%x\n", __func__, pwr_mode);
+
+#ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE
+	dt2w_scr_suspended = false;
+#endif
+
 	return 0;
 }
 
@@ -977,6 +1004,12 @@ static int mdss_dsi_panel_off(struct mdss_panel_data *pdata)
 {
 	struct mdss_dsi_ctrl_pdata *ctrl = NULL;
 	struct mdss_panel_info *pinfo;
+	
+#ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE
+	bool prevent_sleep = (dt2w_switch > 0);
+	if (prevent_sleep && in_phone_call)
+		prevent_sleep = false;
+#endif	
 
 	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
@@ -1001,10 +1034,16 @@ static int mdss_dsi_panel_off(struct mdss_panel_data *pdata)
 		mdss_dsi_panel_cmds_send(ctrl, &ctrl->off_cmds);
 
 	mdss_dsi_panel_off_in_prog_notify(pdata, pinfo);
+	display_on = false;
 
 end:
 	pinfo->blank_state = MDSS_PANEL_BLANK_BLANK;
 	pr_info("%s-:\n", __func__);
+
+#ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE
+	dt2w_scr_suspended = true;
+#endif
+
 	return 0;
 }
 
@@ -1943,15 +1982,23 @@ static int mdss_panel_parse_dt(struct device_node *np,
 		"qcom,mdss-pan-physical-height-dimension", &tmp);
 	pinfo->physical_height = (!rc ? tmp : 0);
 	rc = of_property_read_u32(np, "qcom,mdss-dsi-h-left-border", &tmp);
-	pinfo->lcdc.xres_pad = (!rc ? tmp : 0);
+	pinfo->lcdc.border_left = (!rc ? tmp : 0);
 	rc = of_property_read_u32(np, "qcom,mdss-dsi-h-right-border", &tmp);
 	if (!rc)
-		pinfo->lcdc.xres_pad += tmp;
+		pinfo->lcdc.border_right = tmp;
+
+	pinfo->lcdc.xres_pad = (pinfo->lcdc.border_left +
+				pinfo->lcdc.border_right);
+
 	rc = of_property_read_u32(np, "qcom,mdss-dsi-v-top-border", &tmp);
-	pinfo->lcdc.yres_pad = (!rc ? tmp : 0);
+	pinfo->lcdc.border_top = (!rc ? tmp : 0);
 	rc = of_property_read_u32(np, "qcom,mdss-dsi-v-bottom-border", &tmp);
 	if (!rc)
-		pinfo->lcdc.yres_pad += tmp;
+		pinfo->lcdc.border_bottom = tmp;
+
+	pinfo->lcdc.yres_pad = (pinfo->lcdc.border_top +
+				pinfo->lcdc.border_bottom);
+
 	rc = of_property_read_u32(np, "qcom,mdss-dsi-bpp", &tmp);
 	if (rc) {
 		pr_err("%s:%d, bpp not specified\n", __func__, __LINE__);

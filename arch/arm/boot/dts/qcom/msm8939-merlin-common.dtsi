@@ -221,7 +221,8 @@
 				<&int_fm_tx>, <&afe_pcm_rx>, <&afe_pcm_tx>,
 				<&afe_proxy_rx>, <&afe_proxy_tx>,
 				<&incall_record_rx>, <&incall_record_tx>,
-				<&incall_music_rx>, <&incall_music_2_rx>;
+				<&incall_music_rx>, <&incall_music_2_rx>,
+				<&bt_a2dp_rx>;
 		asoc-cpu-names = "msm-dai-q6-auxpcm.1", "msm-dai-q6-hdmi.8",
 				"msm-dai-q6-mi2s.0", "msm-dai-q6-mi2s.1",
 				"msm-dai-q6-mi2s.2", "msm-dai-q6-mi2s.3",
@@ -234,7 +235,8 @@
 				"msm-dai-q6-dev.224", "msm-dai-q6-dev.225",
 				"msm-dai-q6-dev.241", "msm-dai-q6-dev.240",
 				"msm-dai-q6-dev.32771", "msm-dai-q6-dev.32772",
-				"msm-dai-q6-dev.32773", "msm-dai-q6-dev.32770";
+				"msm-dai-q6-dev.32773", "msm-dai-q6-dev.32770",
+				"msm-dai-q6-dev.12290";
 		asoc-codec = <&stub_codec>, <&pm8916_tombak_dig>;
 		asoc-codec-names = "msm-stub-codec.1", "tombak_codec";
 	};
@@ -291,11 +293,10 @@
 		compatible = "qcom,i2c-msm-v2";
 		#address-cells = <1>;
 		#size-cells = <0>;
-		reg-names = "qup_phys_addr", "bam_phys_addr";
-		reg = <0x78b5000 0x600>,
-		      <0x7884000 0x23000>;
-		interrupt-names = "qup_irq", "bam_irq";
-		interrupts = <0 95 0>, <0 238 0>;
+		reg-names = "qup_phys_addr";
+		reg = <0x78b5000 0x600>;
+		interrupt-names = "qup_irq";
+		interrupts = <0 95 0>;
 		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
 			 <&clock_gcc clk_gcc_blsp1_qup1_i2c_apps_clk>;
 		clock-names = "iface_clk", "core_clk";
@@ -306,8 +307,9 @@
 		pinctrl-1 = <&i2c_1_sleep>;
 		qcom,noise-rjct-scl = <0>;
 		qcom,noise-rjct-sda = <0>;
-		qcom,bam-pipe-idx-cons = <4>;
-		qcom,bam-pipe-idx-prod = <5>;
+		dmas = <&dma_blsp1 4 64 0x20000020 0x20>,
+		        <&dma_blsp1 5 32 0x20000020 0x20>;
+		dma-names = "tx", "rx";
 		qcom,master-id = <86>;
 
 		fsa8500@23 {
@@ -509,7 +511,7 @@
 		interrupt-names = "spi_irq", "spi_bam_irq";
 		interrupts = <0 98 0>, <0 238 0>;
 		spi-max-frequency = <19200000>;
-		pinctrl-names = "default", "sleep";
+		pinctrl-names = "spi_default", "spi_sleep";
 		pinctrl-0 = <&spi4_default &spi4_cs0_active>;
 		pinctrl-1 = <&spi4_sleep &spi4_cs0_sleep>;
 		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
@@ -535,7 +537,7 @@
 		interrupt-names = "spi_irq", "spi_bam_irq";
 		interrupts = <0 99 0>, <0 238 0>;
 		spi-max-frequency = <50000000>;
-		pinctrl-names = "default", "sleep";
+		pinctrl-names = "spi_default", "spi_sleep";
 		pinctrl-0 = <&spi5_default &spi5_cs0_active>;
 		pinctrl-1 = <&spi5_sleep &spi5_cs0_sleep>;
 		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
@@ -1001,7 +1003,7 @@
 		qcom,pin-func = <1>;
 		label = "spi4-active";
 		/* active state */
-		spi4_default: default {
+		spi4_default: spi4_default {
 			drive-strength = <12>; /* 12 MA */
 			bias-disable = <0>; /* No PULL */
 		};
@@ -1014,7 +1016,7 @@
 		qcom,pin-func = <0>;
 		label = "spi4-suspend";
 		/* suspended state */
-		spi4_sleep: sleep {
+		spi4_sleep: spi4_sleep {
 			drive-strength = <2>; /* 2 MA */
 			bias-disable = <0>; /* No PULL */
 		};
