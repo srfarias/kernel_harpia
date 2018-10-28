@@ -1,3 +1,9 @@
+ifeq ($(TARGET_KERNEL_DEFCONFIG),)
+KERNEL_DEFCONFIG := harpia_defconfig
+else
+KERNEL_DEFCONFIG := $(TARGET_KERNEL_CONFIG)
+endif
+
 #Android makefile to build kernel as a part of Android Build
 PERL		= perl
 
